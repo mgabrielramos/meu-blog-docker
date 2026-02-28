@@ -1,66 +1,84 @@
-version: '3.8'
+version: '3.8'  # Versão do formato do Docker Compose
 
 services:
+  # =========================
+  # Serviço de BANCO DE DADOS MySQL
+  # =========================
   db:
-    image: mysql:8.0
-    container_name: wordpress_db
-    restart: always
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: wordpress
-      MYSQL_USER: wp_user
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    image: mysql:8.0              # Imagem oficial do MySQL 8
+    container_name: wordpress_db  # Nome fixo do container (facilita comandos)
+    restart: always               # Reinicia automaticamente se o container cair
+    environment:                  # Variáveis de ambiente passadas para o MySQL
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}  # Senha do usuário root (vem do .env)
+      MYSQL_DATABASE: wordpress                    # Nome do banco que será criado
+      MYSQL_USER: wp_user                          # Usuário normal para o WordPress
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}            # Senha desse usuário (do .env)
     volumes:
-      - db_data:/var/lib/mysql
+      - db_data:/var/lib/mysql     # Volume persistente para os dados do banco
     networks:
-      - wordpress_net
+      - wordpress_net              # Rede interna Docker onde os serviços se enxergam
 
+  # =========================
+  # Serviço do WORDPRESS em PHP-FPM (sem servidor web embutido)
+  # =========================
   wordpress:
-    image: wordpress:6.6-php8.3-fpm
-    container_name: wordpress_app
-    restart: always
+    image: wordpress:6.6-php8.3-fpm  # Imagem oficial WordPress com PHP-FPM
+    container_name: wordpress_app    # Nome do container
+    restart: always                  # Reinicia automaticamente
     environment:
-      WORDPRESS_DB_HOST: db:3306
-      WORDPRESS_DB_USER: wp_user
-      WORDPRESS_DB_PASSWORD: ${WORDPRESS_DB_PASSWORD}
-      WORDPRESS_DB_NAME: wordpress
+      WORDPRESS_DB_HOST: db:3306         # Host do banco (nome do serviço db na rede Docker)
+      WORDPRESS_DB_USER: wp_user         # Mesmo user criado no MySQL
+      WORDPRESS_DB_PASSWORD: ${WORDPRESS_DB_PASSWORD}  # Senha (do .env)
+      WORDPRESS_DB_NAME: wordpress       # Nome do banco
     volumes:
-      - wp_data:/var/www/html
+      - wp_data:/var/www/html            # Volume que guarda os arquivos do WordPress
     networks:
-      - wordpress_net
+      - wordpress_net                    # Mesma rede do banco
     depends_on:
-      - db
+      - db                               # Sobe depois do banco (ordem de boot)
 
+  # =========================
+  # Serviço NGINX (reverse proxy + arquivos estáticos + cache)
+  # =========================
   nginx:
-    image: nginx:alpine
-    container_name: wordpress_nginx
-    restart: always
+    image: nginx:alpine                  # Imagem leve do Nginx (Alpine Linux)
+    container_name: wordpress_nginx      # Nome do container
+    restart: always                      # Reinicia automaticamente
     ports:
-      - "8080:80"
+      - "8080:80"                        # Expõe porta 80 do container na porta 8080 do host
     volumes:
-      - wp_data:/var/www/html
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - wp_data:/var/www/html            # Monta os arquivos do WordPress para o Nginx servir
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro  # Arquivo de config do Nginx da pasta local
     networks:
-      - wordpress_net
+      - wordpress_net                    # Mesma rede para falar com o PHP-FPM
     depends_on:
-      - wordpress
+      - wordpress                        # Garante que o PHP/WordPress suba antes
 
+  # =========================
+  # Serviço do CLOUDFLARE TUNNEL (cloudflared)
+  # =========================
   tunnel:
-    image: cloudflare/cloudflared:latest
-    container_name: cloudflared_tunnel
-    restart: always
-    command: tunnel --no-autoupdate run
+    image: cloudflare/cloudflared:latest  # Imagem oficial do agente Cloudflare
+    container_name: cloudflared_tunnel    # Nome do container
+    restart: always                       # Reinicia automaticamente
+    command: tunnel --no-autoupdate run   # Comando para rodar o túnel (sem auto-update)
     environment:
-      - TUNNEL_TOKEN=${TUNNEL_TOKEN}  # <-- AQUI! Pega do .env
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}      # Token do túnel (vem do .env, nunca commitar isso)
     networks:
-      - wordpress_net
+      - wordpress_net                     # Rede interna (pra alcançar o Nginx)
     depends_on:
-      - nginx
+      - nginx                             # Sobe depois do Nginx estar no ar
 
+# =========================
+# Volumes persistentes (dados que NÃO somem ao parar/remover container)
+# =========================
 volumes:
-  db_data:
-  wp_data:
+  db_data:   # Dados do MySQL (banco de dados)
+  wp_data:   # Arquivos do WordPress (plugins, temas, uploads, etc.)
 
+# =========================
+# Rede interna Docker, tipo bridge, para os containers se comunicarem por nome
+# =========================
 networks:
   wordpress_net:
     driver: bridge
