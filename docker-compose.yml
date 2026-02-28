@@ -1,5 +1,3 @@
-version: '3.8'  # Versão do formato do Docker Compose
-
 services:
   # =========================
   # Serviço de BANCO DE DADOS MySQL
