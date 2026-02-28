@@ -1,0 +1,29 @@
+# Arquivo de segredos (CRÍTICO)
+.env
+
+# Volumes Docker (dados do banco e WordPress)
+db_data/
+wp_data/
+
+# Logs Docker
+*.log
+
+# Arquivos temporários do Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# IDEs e Editores
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Cache WordPress (se aparecer)
+wp-content/cache/
+wp-content/uploads/cache/
+
+# Builds e arquivos desnecessários
+*.tar.gz
+*.sql
+docker-compose.override.yml
